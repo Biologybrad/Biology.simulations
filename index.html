@@ -1,0 +1,1548 @@
+<!doctype html>
+<html lang="en" class="h-full bg-slate-950 text-slate-100">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Forest Fragmentation, Edge Effects & Wildlife Corridors Simulator</title>
+    <meta name="description" content="Interactive spatial modeling simulator for AP Environmental Science investigating forest fragmentation, edge effects, carrying capacity, and wildlife corridors." />
+    <meta property="og:title" content="Forest Fragmentation, Edge Effects & Wildlife Corridors Simulator" />
+    <meta property="og:description" content="Interactive spatial modeling simulator for AP Environmental Science investigating forest fragmentation, edge effects, carrying capacity, and wildlife corridors." />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            colors: {
+              coreGreen: '#047857',
+              coreLight: '#059669',
+              coreDark: '#064e3b',
+              edgeAmber: '#b45309',
+              edgeLight: '#d97706',
+              clearedSlate: '#1e293b',
+              clearedDark: '#0f172a',
+              corridorTeal: '#0f766e',
+              corridorLight: '#14b8a6',
+            },
+            fontFamily: {
+              mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', 'monospace'],
+            }
+          }
+        }
+      }
+    </script>
+    <style>
+      /* Custom fine-grained visual styling */
+      .grid-board {
+        touch-action: none;
+        user-select: none;
+      }
+      .cell-transition {
+        transition: transform 0.12s ease, background-color 0.15s ease, border-color 0.15s ease;
+      }
+      .cell-transition:hover {
+        transform: scale(1.04);
+        z-index: 20;
+      }
+      .edge-buffer-pulse {
+        animation: edgePulse 3s infinite ease-in-out;
+      }
+      @keyframes edgePulse {
+        0%, 100% { box-shadow: inset 0 0 0 2px rgba(245, 158, 11, 0.4); }
+        50% { box-shadow: inset 0 0 0 3px rgba(245, 158, 11, 0.85); }
+      }
+      .territory-badge-glow {
+        box-shadow: 0 0 12px rgba(52, 211, 153, 0.5);
+      }
+      /* Custom road dash animation */
+      .road-stripe {
+        background-image: repeating-linear-gradient(90deg, #fbbf24 0, #fbbf24 10px, transparent 10px, transparent 20px);
+      }
+      /* Scrollbar styling */
+      ::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+      }
+      ::-webkit-scrollbar-track {
+        background: #0f172a;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #334155;
+        border-radius: 3px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #475569;
+      }
+    </style>
+  </head>
+  <body class="h-full flex flex-col font-sans bg-slate-950 text-slate-100 antialiased selection:bg-emerald-500 selection:text-slate-950">
+    
+    <!-- Top Navigation Header -->
+    <header class="border-b border-slate-800 bg-slate-900/90 backdrop-blur sticky top-0 z-40 px-4 py-3 sm:px-6">
+      <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-700 flex items-center justify-center shadow-lg shadow-emerald-900/30">
+            <!-- Habitat Tree SVG -->
+            <svg class="w-6 h-6 text-slate-950" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M12 2L4 12h3v8h10v-8h3L12 2zm0 3.5L16.2 10h-1.7v8h-5v-8H7.8L12 5.5z"/>
+              <path d="M7 21h10v1H7z"/>
+            </svg>
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <h1 class="text-lg sm:text-xl font-bold tracking-tight text-white">Forest Fragmentation & Edge Effects</h1>
+              <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                AP Environmental Science • 9.10
+              </span>
+            </div>
+            <p class="text-xs text-slate-400 hidden sm:block">
+              100-Hectare Spatial Reserve Simulation: Edge Buffer Rule, Core Specialists & Wildlife Corridors
+            </p>
+          </div>
+        </div>
+
+        <!-- Quick actions -->
+        <div class="flex items-center gap-2">
+          <button id="soundToggleBtn" class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 transition" title="Toggle audio feedback">
+            <span id="soundIcon">🔊</span>
+            <span id="soundText" class="hidden md:inline">Audio: On</span>
+          </button>
+          <button id="guideModalBtn" class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-emerald-600/20 text-emerald-300 border border-emerald-500/40 hover:bg-emerald-600/30 transition">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span>AP Concept Guide</span>
+          </button>
+          <button id="copyReportBtn" class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 transition" title="Copy quantitative ecological metrics to clipboard">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+            </svg>
+            <span class="hidden md:inline">Copy Report</span>
+          </button>
+          <button id="resetGridBtn" class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-rose-950/40 text-rose-300 hover:bg-rose-900/50 border border-rose-800/50 transition" title="Reset all 100 hectares to pristine forest">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            <span>Reset Baseline</span>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 flex flex-col gap-6">
+
+      <!-- Interactive Controls Toolbar -->
+      <section class="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-xl flex flex-col gap-4">
+        
+        <!-- Brush Selector & Instructions -->
+        <div class="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 border-b border-slate-800/80 pb-4">
+          <div class="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+            <span class="text-xs uppercase tracking-wider font-semibold text-slate-400 flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+              Active Brush:
+            </span>
+            <div class="inline-flex p-1 bg-slate-950 rounded-xl border border-slate-800 shadow-inner" role="group">
+              <button id="brushClearBtn" class="brush-btn flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold transition" data-mode="cleared">
+                <span class="text-base">🪓</span>
+                <span>Clear Land / Road</span>
+              </button>
+              <button id="brushForestBtn" class="brush-btn flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold transition" data-mode="forest">
+                <span class="text-base">🌲</span>
+                <span>Plant Forest</span>
+              </button>
+              <button id="brushCorridorBtn" class="brush-btn flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold transition" data-mode="corridor">
+                <span class="text-base">🌉</span>
+                <span>Build Corridor</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="text-xs text-slate-400 flex items-center gap-2 bg-slate-950/60 px-3 py-1.5 rounded-lg border border-slate-800/60">
+            <span class="text-emerald-400">💡 Tip:</span>
+            <span>Click or <strong>click-and-drag</strong> across the 10x10 spatial board to sculpt habitat.</span>
+          </div>
+        </div>
+
+        <!-- Presets & Toggles Bar -->
+        <div class="flex flex-col xl:flex-row items-start xl:items-center justify-between gap-4">
+          
+          <!-- Preset Buttons -->
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="text-xs font-semibold text-slate-400 mr-1">AP Presets:</span>
+            <button id="preset1Btn" class="preset-btn px-2.5 py-1.5 rounded-lg text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 hover:border-emerald-500/50 transition flex items-center gap-1.5" title="Full 100 ha forest reserve (64 ha core, 36 ha edge, 16 owl pairs)">
+              <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+              <span>1. Pristine Baseline (100 ha)</span>
+            </button>
+            <button id="preset2Btn" class="preset-btn px-2.5 py-1.5 rounded-lg text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 hover:border-amber-500/50 transition flex items-center gap-1.5" title="Clears top 2 rows (-20 ha). Retains 48 ha core, 32 ha edge, 12 owl pairs">
+              <span class="w-2 h-2 rounded-full bg-amber-400"></span>
+              <span>2. Perimeter Cut (-20 ha)</span>
+            </button>
+            <button id="preset3Btn" class="preset-btn px-2.5 py-1.5 rounded-lg text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 hover:border-rose-500/50 transition flex items-center gap-1.5" title="Clears Row 4 & 5 straight through the middle. High edge penetration, 2 isolated patches">
+              <span class="w-2 h-2 rounded-full bg-rose-400"></span>
+              <span>3. Highway Bisection (-20 ha)</span>
+            </button>
+            <button id="preset4Btn" class="preset-btn px-2.5 py-1.5 rounded-lg text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 hover:border-teal-500/50 transition flex items-center gap-1.5" title="Highway bisection restored with 2 wildlife overpasses at Col 2 & Col 7">
+              <span class="w-2 h-2 rounded-full bg-teal-400"></span>
+              <span>4. Highway + 2 Corridors</span>
+            </button>
+            <button id="preset5Btn" class="preset-btn px-2.5 py-1.5 rounded-lg text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 hover:border-purple-500/50 transition flex items-center gap-1.5" title="Extreme fragmentation: 4 small isolated 9-ha patches separated by roads">
+              <span class="w-2 h-2 rounded-full bg-purple-400"></span>
+              <span>5. Island Archipelago</span>
+            </button>
+          </div>
+
+          <!-- View Overlay Toggles -->
+          <div class="flex flex-wrap items-center gap-4 text-xs font-medium text-slate-300">
+            <label class="inline-flex items-center gap-2 cursor-pointer select-none">
+              <input type="checkbox" id="toggleTerritories" checked class="w-4 h-4 rounded bg-slate-800 border-slate-700 text-emerald-500 focus:ring-emerald-500 focus:ring-offset-slate-900">
+              <span class="flex items-center gap-1">
+                <span>🦉</span> Show 2x2 Core Territories
+              </span>
+            </label>
+            <label class="inline-flex items-center gap-2 cursor-pointer select-none">
+              <input type="checkbox" id="toggleEdgeBuffer" checked class="w-4 h-4 rounded bg-slate-800 border-slate-700 text-amber-500 focus:ring-amber-500 focus:ring-offset-slate-900">
+              <span class="flex items-center gap-1">
+                <span>⚠️</span> Highlight Edge Buffers
+              </span>
+            </label>
+            <label class="inline-flex items-center gap-2 cursor-pointer select-none">
+              <input type="checkbox" id="toggleCoords" class="w-4 h-4 rounded bg-slate-800 border-slate-700 text-slate-400 focus:ring-slate-500 focus:ring-offset-slate-900">
+              <span class="flex items-center gap-1">
+                <span>🔢</span> Show Hectare #
+              </span>
+            </label>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- Two-Column Workspace (Grid Board + Analytics Dashboard) -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        
+        <!-- Left: 10x10 Spatial Grid Board (7 Cols) -->
+        <div class="lg:col-span-7 flex flex-col gap-3">
+          
+          <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-2xl relative">
+            
+            <!-- Grid Header & Compass Scale -->
+            <div class="flex items-center justify-between mb-3 text-xs text-slate-400">
+              <div class="flex items-center gap-2">
+                <span class="font-bold text-slate-200">100-Hectare Reserve Grid</span>
+                <span class="text-slate-500">|</span>
+                <span>1 Cell = 1 Hectare (100m × 100m)</span>
+              </div>
+              <div class="flex items-center gap-3">
+                <span class="bg-slate-800/80 px-2 py-0.5 rounded text-[11px] font-mono text-slate-300">Total: 100 ha (1.0 km²)</span>
+                <div class="flex items-center gap-1 text-[11px] font-semibold text-emerald-400" title="Compass Orientation">
+                  <span>▲ N</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Spatial Board Container -->
+            <div class="relative w-full aspect-square max-w-[560px] mx-auto bg-slate-950 p-2 sm:p-3 rounded-xl border border-slate-800 shadow-inner flex flex-col justify-between">
+              
+              <!-- Column labels (0 - 9) -->
+              <div class="grid grid-cols-10 gap-1 mb-1 text-[10px] text-center font-mono text-slate-500 font-semibold select-none">
+                <div>0</div><div>1</div><div>2</div><div>3</div><div>4</div>
+                <div>5</div><div>6</div><div>7</div><div>8</div><div>9</div>
+              </div>
+
+              <!-- 10x10 Board Grid -->
+              <div id="gridBoard" class="grid-board grid grid-cols-10 gap-1 sm:gap-1.5 flex-1 w-full h-full cursor-crosshair">
+                <!-- 100 Cells dynamically generated by JS -->
+              </div>
+
+            </div>
+
+            <!-- Grid Interactive Legend -->
+            <div class="mt-4 pt-3 border-t border-slate-800/80 flex flex-wrap items-center justify-center gap-3 sm:gap-4 text-xs">
+              <div class="flex items-center gap-1.5">
+                <span class="w-3.5 h-3.5 rounded bg-emerald-600 border border-emerald-400 flex items-center justify-center text-[9px] shadow-sm">🌲</span>
+                <span class="text-slate-300 font-medium">Interior Core Forest</span>
+              </div>
+              <div class="flex items-center gap-1.5">
+                <span class="w-3.5 h-3.5 rounded bg-amber-600 border border-amber-400 flex items-center justify-center text-[9px] shadow-sm">🍂</span>
+                <span class="text-slate-300 font-medium">Edge Buffer Forest (1-ha)</span>
+              </div>
+              <div class="flex items-center gap-1.5">
+                <span class="w-3.5 h-3.5 rounded bg-slate-800 border border-slate-600 flex items-center justify-center text-[9px] shadow-sm">⬛</span>
+                <span class="text-slate-300 font-medium">Cleared / Highway</span>
+              </div>
+              <div class="flex items-center gap-1.5">
+                <span class="w-3.5 h-3.5 rounded bg-teal-600 border border-teal-400 flex items-center justify-center text-[9px] shadow-sm">🌉</span>
+                <span class="text-slate-300 font-medium">Wildlife Corridor</span>
+              </div>
+              <div class="flex items-center gap-1.5">
+                <span class="w-4 h-3.5 rounded border-2 border-dashed border-emerald-300 bg-emerald-500/20 flex items-center justify-center text-[8px] font-bold text-emerald-200">🦉</span>
+                <span class="text-slate-300 font-medium">Core Territory (2×2 ha)</span>
+              </div>
+            </div>
+
+            <!-- Hover Inspector Tooltip / Status -->
+            <div id="cellInspector" class="mt-2 text-center text-xs text-slate-400 font-mono py-1 px-3 bg-slate-950/40 rounded border border-slate-800/50">
+              Hover over or paint cells to view ecological attributes
+            </div>
+
+          </div>
+
+        </div>
+
+        <!-- Right: Analytics, Carrying Capacity & Metapopulation (5 Cols) -->
+        <div class="lg:col-span-5 flex flex-col gap-4">
+          
+          <!-- Metapopulation Connectivity Badge & Patch Status -->
+          <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-xl">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-xs uppercase tracking-wider font-semibold text-slate-400">Metapopulation Connectivity</span>
+              <span id="connectivityStatusBadge" class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                ● 1 Unified Habitat
+              </span>
+            </div>
+            <div class="flex items-center justify-between text-xs text-slate-300 bg-slate-950/70 p-3 rounded-xl border border-slate-800">
+              <div>
+                <span class="text-slate-400 block text-[11px]">Isolated Subpopulations</span>
+                <span id="patchCountVal" class="text-xl font-bold font-mono text-white">1</span>
+                <span class="text-[11px] text-slate-500 ml-1">patch(es)</span>
+              </div>
+              <div class="text-right">
+                <span class="text-slate-400 block text-[11px]">Gene Flow Risk</span>
+                <span id="geneFlowStatus" class="font-semibold text-emerald-400">Continuous / High</span>
+              </div>
+            </div>
+            <p id="connectivitySummaryText" class="mt-2 text-xs text-slate-400 leading-relaxed">
+              All forest and corridor cells form a contiguous habitat network allowing unrestricted organism dispersal and preventing genetic drift.
+            </p>
+          </div>
+
+          <!-- Landscape Habitat Composition Card -->
+          <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-xl flex flex-col gap-3">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+              <h2 class="text-sm font-bold text-white flex items-center gap-2">
+                <span>📊</span> Landscape Composition
+              </h2>
+              <span id="totalForestBadge" class="text-xs font-mono font-bold text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-800">
+                100 ha Forest (100%)
+              </span>
+            </div>
+
+            <!-- Core vs Edge Breakdown -->
+            <div class="grid grid-cols-2 gap-3 pt-1">
+              <!-- Interior Core -->
+              <div class="bg-slate-950/80 p-3 rounded-xl border border-emerald-900/40">
+                <div class="flex items-center justify-between mb-1">
+                  <span class="text-[11px] uppercase font-semibold text-emerald-400 flex items-center gap-1">
+                    <span>🌲</span> Interior Core
+                  </span>
+                  <span id="corePercentVal" class="text-xs font-mono text-emerald-300">64%</span>
+                </div>
+                <div class="text-2xl font-bold font-mono text-white" id="coreHectaresVal">64 <span class="text-xs font-normal text-slate-400">ha</span></div>
+                <div class="w-full bg-slate-800 h-1.5 rounded-full mt-2 overflow-hidden">
+                  <div id="coreProgressBar" class="bg-emerald-500 h-full rounded-full transition-all duration-300" style="width: 64%"></div>
+                </div>
+                <span class="text-[10px] text-slate-400 mt-1.5 block">Buffered from edge abiotic stress</span>
+              </div>
+
+              <!-- Edge Buffer -->
+              <div class="bg-slate-950/80 p-3 rounded-xl border border-amber-900/40">
+                <div class="flex items-center justify-between mb-1">
+                  <span class="text-[11px] uppercase font-semibold text-amber-400 flex items-center gap-1">
+                    <span>🍂</span> Edge Buffer
+                  </span>
+                  <span id="edgePercentVal" class="text-xs font-mono text-amber-300">36%</span>
+                </div>
+                <div class="text-2xl font-bold font-mono text-white" id="edgeHectaresVal">36 <span class="text-xs font-normal text-slate-400">ha</span></div>
+                <div class="w-full bg-slate-800 h-1.5 rounded-full mt-2 overflow-hidden">
+                  <div id="edgeProgressBar" class="bg-amber-500 h-full rounded-full transition-all duration-300" style="width: 36%"></div>
+                </div>
+                <span class="text-[10px] text-slate-400 mt-1.5 block">High sunlight, wind & predation</span>
+              </div>
+            </div>
+
+            <!-- Corridors & Cleared Metric line -->
+            <div class="grid grid-cols-2 gap-3 text-xs bg-slate-950/50 p-2.5 rounded-xl border border-slate-800/80 font-mono">
+              <div class="flex items-center justify-between">
+                <span class="text-slate-400">🌉 Wildlife Corridors:</span>
+                <span id="corridorCountVal" class="font-bold text-teal-300">0 ha</span>
+              </div>
+              <div class="flex items-center justify-between">
+                <span class="text-slate-400">🪓 Cleared / Roads:</span>
+                <span id="clearedCountVal" class="font-bold text-slate-300">0 ha</span>
+              </div>
+            </div>
+
+            <!-- Core-to-Edge Ratio -->
+            <div class="bg-gradient-to-r from-slate-950 via-slate-900 to-slate-950 p-3 rounded-xl border border-slate-800 flex items-center justify-between">
+              <div>
+                <span class="text-xs font-semibold text-slate-300 block">Core-to-Edge Ratio</span>
+                <span class="text-[11px] text-slate-500">Key AP indicator of habitat integrity</span>
+              </div>
+              <div class="text-right">
+                <span id="ratioDisplay" class="text-xl font-bold font-mono text-emerald-400">1.78 : 1</span>
+                <span id="ratioRating" class="block text-[10px] font-semibold text-emerald-500">High Integrity</span>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Species Carrying Capacity (K) Card -->
+          <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-xl flex flex-col gap-3">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+              <h2 class="text-sm font-bold text-white flex items-center gap-2">
+                <span>🐾</span> Species Carrying Capacity (K)
+              </h2>
+              <span class="text-[11px] text-slate-400">Equilibrium Density</span>
+            </div>
+
+            <!-- Species X: Core Specialist (Spotted Owl) -->
+            <div class="bg-slate-950/80 p-3.5 rounded-xl border border-emerald-900/40 relative overflow-hidden">
+              <div class="flex items-start justify-between">
+                <div class="flex items-center gap-2.5">
+                  <div class="w-9 h-9 rounded-lg bg-emerald-900/60 border border-emerald-700/50 flex items-center justify-center text-lg shadow">
+                    🦉
+                  </div>
+                  <div>
+                    <h3 class="text-xs font-bold text-white">Species X: Core Specialist</h3>
+                    <p class="text-[11px] text-slate-400 italic">e.g., Northern Spotted Owl (Strix occidentalis)</p>
+                  </div>
+                </div>
+                <div class="text-right">
+                  <span id="owlCapacityVal" class="text-2xl font-bold font-mono text-emerald-400">16</span>
+                  <span class="text-xs text-slate-400 block font-sans">breeding pairs</span>
+                </div>
+              </div>
+              
+              <div class="mt-2.5 pt-2 border-t border-slate-900 flex items-center justify-between text-xs">
+                <span class="text-slate-400 text-[11px]">Requires contiguous <strong>2×2 ha</strong> interior core</span>
+                <span id="owlBaselineChangeBadge" class="font-mono text-xs font-bold px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                  100% of baseline (16 max)
+                </span>
+              </div>
+            </div>
+
+            <!-- Species Y: Edge Generalist (White-tailed Deer / Cowbird) -->
+            <div class="bg-slate-950/80 p-3.5 rounded-xl border border-amber-900/40 relative overflow-hidden">
+              <div class="flex items-start justify-between">
+                <div class="flex items-center gap-2.5">
+                  <div class="w-9 h-9 rounded-lg bg-amber-900/60 border border-amber-700/50 flex items-center justify-center text-lg shadow">
+                    🦌
+                  </div>
+                  <div>
+                    <h3 class="text-xs font-bold text-white">Species Y: Edge Generalist</h3>
+                    <p class="text-[11px] text-slate-400 italic">e.g., White-tailed Deer / Brown-headed Cowbird</p>
+                  </div>
+                </div>
+                <div class="text-right">
+                  <span id="deerCapacityVal" class="text-2xl font-bold font-mono text-amber-400">18</span>
+                  <span class="text-xs text-slate-400 block font-sans">individuals</span>
+                </div>
+              </div>
+
+              <div class="mt-2.5 pt-2 border-t border-slate-900 flex items-center justify-between text-xs">
+                <span class="text-slate-400 text-[11px]">Requires <strong>2 ha</strong> of edge buffer per animal</span>
+                <span id="deerTrendBadge" class="font-mono text-xs font-semibold px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                  Floor(36 / 2) = 18
+                </span>
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+
+      </div>
+
+      <!-- Educational Takeaway Banner (Dynamic Context-Aware Alert) -->
+      <section class="bg-gradient-to-r from-slate-900 via-slate-900 to-slate-950 border border-slate-800 rounded-2xl p-5 shadow-xl relative overflow-hidden">
+        <div class="flex items-start gap-3.5">
+          <div id="takeawayIconWrapper" class="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-xl flex-shrink-0 text-emerald-400">
+            💡
+          </div>
+          <div class="flex-1">
+            <div class="flex items-center gap-2">
+              <h3 id="takeawayTitle" class="text-sm font-bold text-white">AP Exam Takeaway: Shape Matters More Than Area</h3>
+              <span id="takeawayTopicTag" class="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">
+                AP Topic 9.10
+              </span>
+            </div>
+            <p id="takeawayDescription" class="mt-1 text-xs sm:text-sm text-slate-300 leading-relaxed">
+              In a pristine 100-hectare reserve, the outer 1-hectare perimeter forms an inevitable 36-hectare edge buffer, leaving 64 hectares of pristine interior core. This core supports 16 non-overlapping breeding pairs of Species X (Spotted Owls).
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- AP Comparative Scenarios Matrix (Accordion / Quick Reference) -->
+      <section class="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-xl">
+        <h3 class="text-sm font-bold text-slate-200 mb-3 flex items-center gap-2">
+          <span>📚</span> AP Environmental Science Concept Matrix: Perimeter Cut vs Highway Bisection
+        </h3>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs border-collapse">
+            <thead>
+              <tr class="border-b border-slate-800 text-slate-400 font-semibold bg-slate-950/60">
+                <th class="py-2.5 px-3">Configuration Scenario</th>
+                <th class="py-2.5 px-3">Total Forest</th>
+                <th class="py-2.5 px-3">Interior Core</th>
+                <th class="py-2.5 px-3">Edge Buffer</th>
+                <th class="py-2.5 px-3">Specialist Pairs (🦉)</th>
+                <th class="py-2.5 px-3">Ecological Impact / AP Insight</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-800/80 text-slate-300 font-mono">
+              <tr class="hover:bg-slate-800/30 transition">
+                <td class="py-2.5 px-3 font-sans font-semibold text-emerald-400">1. Pristine Baseline</td>
+                <td class="py-2.5 px-3">100 ha</td>
+                <td class="py-2.5 px-3 text-emerald-400 font-bold">64 ha</td>
+                <td class="py-2.5 px-3">36 ha</td>
+                <td class="py-2.5 px-3 text-emerald-400 font-bold">16 pairs</td>
+                <td class="py-2.5 px-3 font-sans text-slate-400">Maximum contiguous interior core; zero anthropogenic barrier mortality.</td>
+              </tr>
+              <tr class="hover:bg-slate-800/30 transition">
+                <td class="py-2.5 px-3 font-sans font-semibold text-amber-400">2. Perimeter Cut (-20 ha)</td>
+                <td class="py-2.5 px-3">80 ha</td>
+                <td class="py-2.5 px-3 text-emerald-300 font-bold">48 ha</td>
+                <td class="py-2.5 px-3">32 ha</td>
+                <td class="py-2.5 px-3 text-emerald-300 font-bold">12 pairs</td>
+                <td class="py-2.5 px-3 font-sans text-slate-400">Edge effect is confined to reserve perimeter; maintains 75% of owl territories.</td>
+              </tr>
+              <tr class="hover:bg-slate-800/30 transition">
+                <td class="py-2.5 px-3 font-sans font-semibold text-rose-400">3. Highway Bisection (-20 ha)</td>
+                <td class="py-2.5 px-3">80 ha</td>
+                <td class="py-2.5 px-3 text-rose-400 font-bold">24-32 ha</td>
+                <td class="py-2.5 px-3 text-amber-400">56 ha</td>
+                <td class="py-2.5 px-3 text-rose-400 font-bold">4-8 pairs</td>
+                <td class="py-2.5 px-3 font-sans text-slate-400"><strong>Catastrophic internal edge penetration:</strong> Same 20 ha cut destroys twice as much core!</td>
+              </tr>
+              <tr class="hover:bg-slate-800/30 transition">
+                <td class="py-2.5 px-3 font-sans font-semibold text-teal-400">4. Highway + 2 Corridors</td>
+                <td class="py-2.5 px-3">84 ha</td>
+                <td class="py-2.5 px-3 text-teal-300 font-bold">24-32 ha</td>
+                <td class="py-2.5 px-3">56 ha</td>
+                <td class="py-2.5 px-3 text-teal-300 font-bold">4-8 pairs</td>
+                <td class="py-2.5 px-3 font-sans text-slate-400">Restores metapopulation gene flow and organism crossing without full replanting.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- Modal: AP Concept Guide & Scientific Background -->
+    <div id="guideModal" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm hidden items-center justify-center p-4">
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-2xl w-full p-6 shadow-2xl flex flex-col gap-4 max-h-[90vh] overflow-y-auto">
+        
+        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+          <div class="flex items-center gap-2">
+            <span class="text-xl">🌲</span>
+            <h2 class="text-base sm:text-lg font-bold text-white">AP Environmental Science Topic 9.10 Curriculum Guide</h2>
+          </div>
+          <button id="closeGuideModalBtn" class="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center transition">
+            ✕
+          </button>
+        </div>
+
+        <div class="space-y-4 text-xs sm:text-sm text-slate-300 leading-relaxed">
+          
+          <div>
+            <h3 class="font-bold text-emerald-400 mb-1">1. What is Habitat Fragmentation?</h3>
+            <p>
+              Habitat fragmentation occurs when large, continuous tracts of forest or ecosystems are carved into smaller, isolated patches by roads, agriculture, logging, or urbanization. It reduces total habitat area and increases the ratio of edge to interior.
+            </p>
+          </div>
+
+          <div>
+            <h3 class="font-bold text-amber-400 mb-1">2. Abiotic & Biotic Edge Effects (The 1-Hectare Rule)</h3>
+            <p>
+              The microclimate of a forest edge differs dramatically from deep interior forest:
+            </p>
+            <ul class="list-disc pl-5 mt-1 space-y-1 text-slate-400">
+              <li><strong>Abiotic:</strong> Higher ambient temperatures, lower soil humidity, greater solar radiation, and increased wind shear (tree blowdowns).</li>
+              <li><strong>Biotic:</strong> Proliferation of opportunistic edge predators (raccoons, foxes, crows), brood parasitism by Brown-headed Cowbirds, and easy colonization by invasive exotic weeds.</li>
+            </ul>
+          </div>
+
+          <div>
+            <h3 class="font-bold text-cyan-400 mb-1">3. Core Specialists vs. Edge Generalists</h3>
+            <p>
+              <strong>Core Specialists</strong> (e.g., Northern Spotted Owl) depend on stable, undisturbed old-growth canopies with low temperature fluctuations and abundant canopy prey. They exhibit a minimum area requirement (modeled here as 2×2 ha contiguous core).<br>
+              <strong>Edge Generalists</strong> (e.g., White-tailed Deer) thrive on edge browse, shrub thickets, and transitional ecotones.
+            </p>
+          </div>
+
+          <div>
+            <h3 class="font-bold text-teal-400 mb-1">4. Wildlife Corridors as Anthropogenic Mitigation</h3>
+            <p>
+              Wildlife overpasses, underpasses, and vegetative corridors bridge fragmented patches across transportation barriers. While a 1-hectare-wide corridor is ecologically composed of edge habitat, it critically restores <strong>metapopulation gene flow</strong>, reduces roadkill mortality, enables seasonal migration, and prevents inbreeding depression.
+            </p>
+          </div>
+
+          <div>
+            <h3 class="font-bold text-purple-400 mb-1">5. MacArthur-Wilson Island Biogeography & The SLOSS Debate</h3>
+            <p>
+              Fragmented terrestrial patches behave like ecological islands. Under MacArthur and Wilson's equilibrium model, smaller, isolated patches experience higher extinction rates and lower colonization rates. In reserve design, <strong>Single Large (SL)</strong> is almost always superior to <strong>Several Small (SS)</strong> for protecting apex predators and sensitive core specialists.
+            </p>
+          </div>
+
+        </div>
+
+        <div class="border-t border-slate-800 pt-3 flex justify-end">
+          <button id="closeGuideModalBtn2" class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 font-semibold text-slate-950 text-xs transition">
+            Got it, Return to Simulator
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Notification Toast Container -->
+    <div id="toast" class="fixed bottom-6 right-6 z-50 bg-slate-900 border border-slate-700 text-white text-xs px-4 py-2.5 rounded-xl shadow-2xl transition-all duration-300 opacity-0 pointer-events-none transform translate-y-2 flex items-center gap-2">
+      <span id="toastIcon">📋</span>
+      <span id="toastMessage">Report copied to clipboard!</span>
+    </div>
+
+    <!-- Web Audio Synthesis & Simulation Engine -->
+    <script>
+      (function() {
+        'use strict';
+
+        // --- AUDIO ENGINE (Synthesized via Web Audio API, Zero external files) ---
+        let audioCtx = null;
+        let soundEnabled = true;
+
+        function getAudioContext() {
+          if (!audioCtx) {
+            const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+            if (AudioContextClass) {
+              audioCtx = new AudioContextClass();
+            }
+          }
+          if (audioCtx && audioCtx.state === 'suspended') {
+            audioCtx.resume();
+          }
+          return audioCtx;
+        }
+
+        function playTone(freq, type, duration, gainLevel = 0.1) {
+          if (!soundEnabled) return;
+          try {
+            const ctx = getAudioContext();
+            if (!ctx) return;
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = type;
+            osc.frequency.setValueAtTime(freq, ctx.currentTime);
+            gain.gain.setValueAtTime(gainLevel, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + duration);
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start();
+            osc.stop(ctx.currentTime + duration);
+          } catch (e) {
+            // Audio policy fallback
+          }
+        }
+
+        function playSound(action) {
+          if (!soundEnabled) return;
+          if (action === 'forest') {
+            playTone(480, 'sine', 0.12, 0.08);
+          } else if (action === 'cleared') {
+            playTone(140, 'sawtooth', 0.15, 0.09);
+          } else if (action === 'corridor') {
+            playTone(660, 'triangle', 0.15, 0.08);
+            setTimeout(() => playTone(880, 'triangle', 0.15, 0.07), 60);
+          } else if (action === 'preset') {
+            playTone(523.25, 'sine', 0.1, 0.06);
+            setTimeout(() => playTone(659.25, 'sine', 0.1, 0.06), 80);
+            setTimeout(() => playTone(783.99, 'sine', 0.18, 0.07), 160);
+          }
+        }
+
+        // --- SIMULATOR CONSTANTS & STATE ---
+        const GRID_SIZE = 10;
+        const TOTAL_CELLS = 100;
+
+        // Current grid state: 'forest' | 'cleared' | 'corridor'
+        let grid = Array.from({ length: GRID_SIZE }, () => Array(GRID_SIZE).fill('forest'));
+        
+        // Active paint tool: 'cleared' | 'forest' | 'corridor'
+        let currentBrush = 'cleared';
+        let isMouseDown = false;
+
+        // Toggles
+        let showTerritories = true;
+        let highlightEdge = true;
+        let showCoordinates = false;
+
+        // Cache for evaluation results
+        let currentEval = null;
+
+        // DOM Elements
+        const gridBoard = document.getElementById('gridBoard');
+        const cellInspector = document.getElementById('cellInspector');
+        const brushClearBtn = document.getElementById('brushClearBtn');
+        const brushForestBtn = document.getElementById('brushForestBtn');
+        const brushCorridorBtn = document.getElementById('brushCorridorBtn');
+        const toggleTerritories = document.getElementById('toggleTerritories');
+        const toggleEdgeBuffer = document.getElementById('toggleEdgeBuffer');
+        const toggleCoords = document.getElementById('toggleCoords');
+        const soundToggleBtn = document.getElementById('soundToggleBtn');
+        const soundIcon = document.getElementById('soundIcon');
+        const soundText = document.getElementById('soundText');
+        const resetGridBtn = document.getElementById('resetGridBtn');
+        const copyReportBtn = document.getElementById('copyReportBtn');
+        const guideModal = document.getElementById('guideModal');
+        const guideModalBtn = document.getElementById('guideModalBtn');
+        const closeGuideModalBtn = document.getElementById('closeGuideModalBtn');
+        const closeGuideModalBtn2 = document.getElementById('closeGuideModalBtn2');
+
+        // Presets
+        const preset1Btn = document.getElementById('preset1Btn');
+        const preset2Btn = document.getElementById('preset2Btn');
+        const preset3Btn = document.getElementById('preset3Btn');
+        const preset4Btn = document.getElementById('preset4Btn');
+        const preset5Btn = document.getElementById('preset5Btn');
+
+        // Metric Display Elements
+        const totalForestBadge = document.getElementById('totalForestBadge');
+        const coreHectaresVal = document.getElementById('coreHectaresVal');
+        const corePercentVal = document.getElementById('corePercentVal');
+        const coreProgressBar = document.getElementById('coreProgressBar');
+        const edgeHectaresVal = document.getElementById('edgeHectaresVal');
+        const edgePercentVal = document.getElementById('edgePercentVal');
+        const edgeProgressBar = document.getElementById('edgeProgressBar');
+        const corridorCountVal = document.getElementById('corridorCountVal');
+        const clearedCountVal = document.getElementById('clearedCountVal');
+        const ratioDisplay = document.getElementById('ratioDisplay');
+        const ratioRating = document.getElementById('ratioRating');
+
+        const owlCapacityVal = document.getElementById('owlCapacityVal');
+        const owlBaselineChangeBadge = document.getElementById('owlBaselineChangeBadge');
+        const deerCapacityVal = document.getElementById('deerCapacityVal');
+        const deerTrendBadge = document.getElementById('deerTrendBadge');
+
+        const connectivityStatusBadge = document.getElementById('connectivityStatusBadge');
+        const patchCountVal = document.getElementById('patchCountVal');
+        const geneFlowStatus = document.getElementById('geneFlowStatus');
+        const connectivitySummaryText = document.getElementById('connectivitySummaryText');
+
+        const takeawayIconWrapper = document.getElementById('takeawayIconWrapper');
+        const takeawayTitle = document.getElementById('takeawayTitle');
+        const takeawayTopicTag = document.getElementById('takeawayTopicTag');
+        const takeawayDescription = document.getElementById('takeawayDescription');
+
+        // --- CORE EDUCATIONAL & SCIENTIFIC ALGORITHMS ---
+
+        /**
+         * 1. Dynamic Edge Effect Algorithm (Rule of 1-Hectare Edge Buffer)
+         * - A cell is classified as 'EDGE BUFFER FOREST' if:
+         *   * Type is 'forest'
+         *   * AND located on outer perimeter (row 0, row 9, col 0, col 9)
+         *   * OR adjacent (all 8 orthogonal & diagonal neighbors) to at least one 'cleared' cell.
+         * - A cell is classified as 'INTERIOR CORE FOREST' if:
+         *   * Type is 'forest'
+         *   * AND does not touch any grid boundary
+         *   * AND NONE of its 8 neighboring cells are 'cleared'.
+         * - 'corridor' cells act as permeable movement habitat (1-ha wide, edge-like movement corridor).
+         */
+        function evaluateCellStatus(g) {
+          const status = Array.from({ length: GRID_SIZE }, () => Array(GRID_SIZE).fill(''));
+
+          for (let r = 0; r < GRID_SIZE; r++) {
+            for (let c = 0; c < GRID_SIZE; c++) {
+              const type = g[r][c];
+              if (type === 'cleared') {
+                status[r][c] = 'cleared';
+              } else if (type === 'corridor') {
+                status[r][c] = 'corridor';
+              } else {
+                // Type is 'forest'
+                let isEdge = false;
+                // Outer perimeter check
+                if (r === 0 || r === GRID_SIZE - 1 || c === 0 || c === GRID_SIZE - 1) {
+                  isEdge = true;
+                } else {
+                  // Check all 8 surrounding neighbors
+                  for (let dr = -1; dr <= 1; dr++) {
+                    for (let dc = -1; dc <= 1; dc++) {
+                      if (dr === 0 && dc === 0) continue;
+                      const nr = r + dr;
+                      const nc = c + dc;
+                      if (nr >= 0 && nr < GRID_SIZE && nc >= 0 && nc < GRID_SIZE) {
+                        if (g[nr][nc] === 'cleared') {
+                          isEdge = true;
+                          break;
+                        }
+                      }
+                    }
+                    if (isEdge) break;
+                  }
+                }
+                status[r][c] = isEdge ? 'edge_buffer' : 'interior_core';
+              }
+            }
+          }
+          return status;
+        }
+
+        /**
+         * 2. Core Specialist Territory Finder (Species X - Spotted Owl)
+         * Requires contiguous 2x2 blocks (4 ha) composed ENTIRELY of 'interior_core'.
+         * Territories CANNOT overlap.
+         * Automated search algorithm to pack the maximum number of non-overlapping 2x2 territories.
+         */
+        function findSpecialistTerritories(status) {
+          // Identify all valid 2x2 candidate blocks
+          const candidates = [];
+          for (let r = 0; r < GRID_SIZE - 1; r++) {
+            for (let c = 0; c < GRID_SIZE - 1; c++) {
+              if (
+                status[r][c] === 'interior_core' &&
+                status[r + 1][c] === 'interior_core' &&
+                status[r][c + 1] === 'interior_core' &&
+                status[r + 1][c + 1] === 'interior_core'
+              ) {
+                candidates.push({
+                  r,
+                  c,
+                  cells: [
+                    r * GRID_SIZE + c,
+                    (r + 1) * GRID_SIZE + c,
+                    r * GRID_SIZE + (c + 1),
+                    (r + 1) * GRID_SIZE + (c + 1)
+                  ]
+                });
+              }
+            }
+          }
+
+          if (candidates.length === 0) {
+            return [];
+          }
+
+          // Build conflict graph: candidates that share any cell
+          const conflicts = candidates.map(() => []);
+          for (let i = 0; i < candidates.length; i++) {
+            for (let j = i + 1; j < candidates.length; j++) {
+              const shared = candidates[i].cells.some(cell => candidates[j].cells.includes(cell));
+              if (shared) {
+                conflicts[i].push(j);
+                conflicts[j].push(i);
+              }
+            }
+          }
+
+          // Find Maximum Independent Set using prioritized search
+          // Degree heuristic: try candidates with fewest conflicts first
+          const order = candidates.map((_, i) => i).sort((a, b) => conflicts[a].length - conflicts[b].length);
+
+          let bestSet = [];
+
+          function search(index, currentSet, availableMask) {
+            // Pruning: if current set + remaining available candidates cannot beat bestSet, prune
+            let potential = currentSet.length;
+            for (let i = index; i < order.length; i++) {
+              const c = order[i];
+              if (!availableMask[c]) potential++;
+            }
+            if (potential <= bestSet.length) return;
+
+            for (let i = index; i < order.length; i++) {
+              const c = order[i];
+              if (availableMask[c]) continue; // occupied/conflicted
+
+              // Choose c
+              currentSet.push(c);
+              const newAvailable = [...availableMask];
+              newAvailable[c] = true;
+              for (const neighbor of conflicts[c]) {
+                newAvailable[neighbor] = true;
+              }
+
+              if (currentSet.length > bestSet.length) {
+                bestSet = [...currentSet];
+              }
+
+              search(i + 1, currentSet, newAvailable);
+
+              // Backtrack
+              currentSet.pop();
+            }
+          }
+
+          const initialMask = new Array(candidates.length).fill(false);
+          search(0, [], initialMask);
+
+          // Return selected territory objects
+          return bestSet.map((candIndex, idx) => ({
+            id: idx + 1,
+            r: candidates[candIndex].r,
+            c: candidates[candIndex].c,
+            cells: candidates[candIndex].cells
+          }));
+        }
+
+        /**
+         * 3. Metapopulation Connectivity (Connected Components of Forest / Corridor)
+         * Calculates number of isolated patches (orthogonal adjacency: N, S, E, W).
+         */
+        function calculateConnectivity(g) {
+          const visited = Array.from({ length: GRID_SIZE }, () => Array(GRID_SIZE).fill(false));
+          const patches = [];
+
+          for (let r = 0; r < GRID_SIZE; r++) {
+            for (let c = 0; c < GRID_SIZE; c++) {
+              const type = g[r][c];
+              if ((type === 'forest' || type === 'corridor') && !visited[r][c]) {
+                // BFS to flood-fill patch
+                const patchCells = [];
+                const queue = [[r, c]];
+                visited[r][c] = true;
+
+                while (queue.length > 0) {
+                  const [currR, currC] = queue.shift();
+                  patchCells.push({ r: currR, c: currC, type: g[currR][currC] });
+
+                  // 4 orthogonal directions
+                  const dirs = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+                  for (const [dr, dc] of dirs) {
+                    const nr = currR + dr;
+                    const nc = currC + dc;
+                    if (nr >= 0 && nr < GRID_SIZE && nc >= 0 && nc < GRID_SIZE) {
+                      if (!visited[nr][nc] && (g[nr][nc] === 'forest' || g[nr][nc] === 'corridor')) {
+                        visited[nr][nc] = true;
+                        queue.push([nr, nc]);
+                      }
+                    }
+                  }
+                }
+                patches.push(patchCells);
+              }
+            }
+          }
+
+          return patches;
+        }
+
+        /**
+         * Master Evaluation Function
+         */
+        function runFullEvaluation() {
+          const status = evaluateCellStatus(grid);
+          const territories = findSpecialistTerritories(status);
+          const patches = calculateConnectivity(grid);
+
+          let coreCount = 0;
+          let edgeCount = 0;
+          let corridorCount = 0;
+          let clearedCount = 0;
+
+          for (let r = 0; r < GRID_SIZE; r++) {
+            for (let c = 0; c < GRID_SIZE; c++) {
+              const s = status[r][c];
+              if (s === 'interior_core') coreCount++;
+              else if (s === 'edge_buffer') edgeCount++;
+              else if (s === 'corridor') corridorCount++;
+              else if (s === 'cleared') clearedCount++;
+            }
+          }
+
+          const totalForest = coreCount + edgeCount; // pure forest cells
+          const totalHabitat = totalForest + corridorCount; // all vegetated habitat
+
+          // Carrying Capacities
+          // Species X (Spotted Owl): territory count
+          const owlPairs = territories.length;
+
+          // Species Y (Edge Generalist): floor(Edge Buffer / 2)
+          const deerCount = Math.floor(edgeCount / 2);
+
+          // Core to Edge Ratio
+          const ratio = edgeCount > 0 ? (coreCount / edgeCount).toFixed(2) : (coreCount > 0 ? '∞' : '0.00');
+
+          return {
+            status,
+            territories,
+            patches,
+            coreCount,
+            edgeCount,
+            corridorCount,
+            clearedCount,
+            totalForest,
+            totalHabitat,
+            owlPairs,
+            deerCount,
+            ratio
+          };
+        }
+
+        // --- RENDER FUNCTIONS ---
+
+        function initGridDOM() {
+          gridBoard.innerHTML = '';
+          for (let r = 0; r < GRID_SIZE; r++) {
+            for (let c = 0; c < GRID_SIZE; c++) {
+              const cellIndex = r * GRID_SIZE + c;
+              const cellEl = document.createElement('div');
+              cellEl.id = `cell-${r}-${c}`;
+              cellEl.className = 'cell relative rounded-md flex flex-col items-center justify-center font-mono select-none cursor-pointer cell-transition text-[10px] overflow-hidden';
+              cellEl.dataset.r = r;
+              cellEl.dataset.c = c;
+              cellEl.dataset.index = cellIndex;
+
+              // Mouse Painting Handlers
+              cellEl.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                isMouseDown = true;
+                applyPaint(r, c);
+              });
+
+              cellEl.addEventListener('mouseenter', () => {
+                updateInspector(r, c);
+                if (isMouseDown) {
+                  applyPaint(r, c);
+                }
+              });
+
+              gridBoard.appendChild(cellEl);
+            }
+          }
+
+          // Global mouseup to release paint drag
+          window.addEventListener('mouseup', () => {
+            isMouseDown = false;
+          });
+
+          // Touch Event Support for tablets/mobile
+          gridBoard.addEventListener('touchstart', handleTouchStart, { passive: false });
+          gridBoard.addEventListener('touchmove', handleTouchMove, { passive: false });
+          gridBoard.addEventListener('touchend', () => { isMouseDown = false; });
+        }
+
+        function handleTouchStart(e) {
+          if (e.touches.length === 1) {
+            e.preventDefault();
+            isMouseDown = true;
+            const touch = e.touches[0];
+            const target = document.elementFromPoint(touch.clientX, touch.clientY);
+            if (target && target.closest('.cell')) {
+              const cell = target.closest('.cell');
+              applyPaint(parseInt(cell.dataset.r), parseInt(cell.dataset.c));
+            }
+          }
+        }
+
+        function handleTouchMove(e) {
+          if (isMouseDown && e.touches.length === 1) {
+            e.preventDefault();
+            const touch = e.touches[0];
+            const target = document.elementFromPoint(touch.clientX, touch.clientY);
+            if (target && target.closest('.cell')) {
+              const cell = target.closest('.cell');
+              applyPaint(parseInt(cell.dataset.r), parseInt(cell.dataset.c));
+            }
+          }
+        }
+
+        function applyPaint(r, c) {
+          if (grid[r][c] === currentBrush) return; // no change needed
+          grid[r][c] = currentBrush;
+          playSound(currentBrush);
+          render();
+        }
+
+        function render() {
+          currentEval = runFullEvaluation();
+          const { status, territories, patches, coreCount, edgeCount, corridorCount, clearedCount, totalForest, totalHabitat, owlPairs, deerCount, ratio } = currentEval;
+
+          // Map cells in territories for badge overlays
+          const territoryCellMap = {};
+          territories.forEach((t) => {
+            t.cells.forEach(cellIdx => {
+              territoryCellMap[cellIdx] = t;
+            });
+          });
+
+          // Update each Grid Cell
+          for (let r = 0; r < GRID_SIZE; r++) {
+            for (let c = 0; c < GRID_SIZE; c++) {
+              const cellEl = document.getElementById(`cell-${r}-${c}`);
+              const cellIndex = r * GRID_SIZE + c;
+              const cellStatus = status[r][c];
+              const cellType = grid[r][c];
+
+              // Base reset
+              cellEl.className = 'cell relative rounded-md flex flex-col items-center justify-center font-mono select-none cursor-pointer cell-transition text-[10px] overflow-hidden ';
+
+              let contentHTML = '';
+
+              if (cellType === 'cleared') {
+                cellEl.classList.add('bg-slate-900', 'border', 'border-slate-800', 'text-slate-400', 'shadow-inner');
+                contentHTML = `
+                  <div class="w-full h-full flex flex-col items-center justify-center opacity-85">
+                    <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                    </svg>
+                    <span class="text-[9px] text-slate-500 font-bold tracking-wider mt-0.5">ROAD</span>
+                  </div>
+                `;
+              } else if (cellType === 'corridor') {
+                cellEl.classList.add('bg-teal-700', 'border-2', 'border-teal-400', 'text-teal-100', 'shadow-md');
+                contentHTML = `
+                  <div class="w-full h-full flex flex-col items-center justify-center">
+                    <span class="text-xs">🌉</span>
+                    <span class="text-[8px] font-bold tracking-tight text-teal-200">BRIDGE</span>
+                  </div>
+                `;
+              } else if (cellStatus === 'interior_core') {
+                cellEl.classList.add('bg-emerald-700', 'border', 'border-emerald-500', 'text-emerald-100', 'shadow-sm');
+                contentHTML = `
+                  <div class="w-full h-full flex flex-col items-center justify-center">
+                    <span class="text-xs sm:text-sm">🌲</span>
+                    <span class="text-[8px] font-medium text-emerald-200 opacity-80">CORE</span>
+                  </div>
+                `;
+              } else if (cellStatus === 'edge_buffer') {
+                cellEl.classList.add('bg-amber-600', 'border', 'border-amber-400', 'text-amber-100');
+                if (highlightEdge) {
+                  cellEl.classList.add('edge-buffer-pulse');
+                }
+                contentHTML = `
+                  <div class="w-full h-full flex flex-col items-center justify-center">
+                    <span class="text-xs sm:text-sm">🍂</span>
+                    <span class="text-[8px] font-bold text-amber-200 opacity-90">EDGE</span>
+                  </div>
+                `;
+              }
+
+              // Territory Overlay Rendering
+              if (showTerritories && territoryCellMap[cellIndex]) {
+                const t = territoryCellMap[cellIndex];
+                cellEl.classList.add('ring-2', 'ring-emerald-300', 'ring-inset');
+                // If top-left cell of the 2x2 territory, show badge
+                if (t.r === r && t.c === c) {
+                  contentHTML += `
+                    <div class="absolute inset-0 bg-emerald-950/60 backdrop-blur-[1px] flex flex-col items-center justify-center z-10 rounded-md border-2 border-dashed border-emerald-300 territory-badge-glow">
+                      <span class="text-xs">🦉</span>
+                      <span class="text-[9px] font-extrabold text-emerald-300 bg-emerald-950 px-1 py-0.5 rounded shadow">T#${t.id}</span>
+                    </div>
+                  `;
+                } else {
+                  contentHTML += `
+                    <div class="absolute inset-0 bg-emerald-900/30 flex items-center justify-center z-5">
+                      <span class="text-[8px] font-bold text-emerald-300 opacity-60">2×2</span>
+                    </div>
+                  `;
+                }
+              }
+
+              // Coordinates toggle
+              if (showCoordinates) {
+                contentHTML += `
+                  <div class="absolute top-0.5 left-0.5 text-[8px] font-mono text-white/50 px-0.5 bg-black/40 rounded leading-none pointer-events-none">
+                    ${r},${c}
+                  </div>
+                `;
+              }
+
+              cellEl.innerHTML = contentHTML;
+            }
+          }
+
+          // Update Analytics Cards
+          totalForestBadge.textContent = `${totalHabitat} ha Habitat (${totalHabitat}%)`;
+          coreHectaresVal.innerHTML = `${coreCount} <span class="text-xs font-normal text-slate-400">ha</span>`;
+          corePercentVal.textContent = `${coreCount}%`;
+          coreProgressBar.style.width = `${coreCount}%`;
+
+          edgeHectaresVal.innerHTML = `${edgeCount} <span class="text-xs font-normal text-slate-400">ha</span>`;
+          edgePercentVal.textContent = `${edgeCount}%`;
+          edgeProgressBar.style.width = `${edgeCount}%`;
+
+          corridorCountVal.textContent = `${corridorCount} ha`;
+          clearedCountVal.textContent = `${clearedCount} ha`;
+
+          ratioDisplay.textContent = `${ratio} : 1`;
+          if (edgeCount === 0 && coreCount > 0) {
+            ratioRating.textContent = '100% Core';
+            ratioRating.className = 'block text-[10px] font-semibold text-emerald-400';
+          } else {
+            const numRatio = parseFloat(ratio);
+            if (numRatio >= 1.5) {
+              ratioRating.textContent = 'High Integrity';
+              ratioRating.className = 'block text-[10px] font-semibold text-emerald-400';
+            } else if (numRatio >= 0.8) {
+              ratioRating.textContent = 'Moderate Fragmentation';
+              ratioRating.className = 'block text-[10px] font-semibold text-amber-400';
+            } else {
+              ratioRating.textContent = 'Severe Edge Degradation';
+              ratioRating.className = 'block text-[10px] font-semibold text-rose-400';
+            }
+          }
+
+          // Species Carrying Capacity
+          owlCapacityVal.textContent = owlPairs;
+          const owlPct = Math.round((owlPairs / 16) * 100);
+          owlBaselineChangeBadge.textContent = `${owlPct}% of baseline (${owlPairs}/16)`;
+          if (owlPairs >= 12) {
+            owlBaselineChangeBadge.className = 'font-mono text-xs font-bold px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30';
+          } else if (owlPairs >= 6) {
+            owlBaselineChangeBadge.className = 'font-mono text-xs font-bold px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30';
+          } else {
+            owlBaselineChangeBadge.className = 'font-mono text-xs font-bold px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30';
+          }
+
+          deerCapacityVal.textContent = deerCount;
+          deerTrendBadge.textContent = `Floor(${edgeCount} / 2) = ${deerCount}`;
+
+          // Metapopulation Connectivity
+          const patchCount = patches.length;
+          patchCountVal.textContent = patchCount;
+
+          if (patchCount === 0) {
+            connectivityStatusBadge.className = 'inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-rose-500/20 text-rose-400 border border-rose-500/30';
+            connectivityStatusBadge.innerHTML = '● 0 Habitat (Extinct)';
+            geneFlowStatus.textContent = 'Total Extinction';
+            geneFlowStatus.className = 'font-semibold text-rose-400';
+            connectivitySummaryText.textContent = 'Complete deforestation: No viable habitat remaining for native wildlife.';
+          } else if (patchCount === 1) {
+            connectivityStatusBadge.className = 'inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30';
+            connectivityStatusBadge.innerHTML = '● 1 Unified Habitat';
+            geneFlowStatus.textContent = 'Continuous / High';
+            geneFlowStatus.className = 'font-semibold text-emerald-400';
+            connectivitySummaryText.textContent = 'All vegetated cells are connected, promoting gene flow and preventing demographic isolation.';
+          } else {
+            connectivityStatusBadge.className = 'inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30';
+            connectivityStatusBadge.innerHTML = `● ${patchCount} Isolated Patches`;
+            geneFlowStatus.textContent = 'Severed / Inbreeding Risk';
+            geneFlowStatus.className = 'font-semibold text-amber-400';
+            connectivitySummaryText.textContent = `Landscape is divided into ${patchCount} disconnected subpopulations. Corridors or overpasses can bridge these fragments!`;
+          }
+
+          // Dynamic Educational Takeaway Banner
+          updateEducationalTakeaway(currentEval);
+        }
+
+        function updateInspector(r, c) {
+          if (!currentEval) return;
+          const type = grid[r][c];
+          const st = currentEval.status[r][c];
+          const cellIndex = r * GRID_SIZE + c;
+
+          let desc = `Cell (Row ${r}, Col ${c}) • Hectare #${cellIndex + 1}: `;
+          if (type === 'cleared') {
+            desc += '⬛ Cleared Anthropogenic Matrix (Road/Urban/Agriculture). Creates 1-ha edge buffer around all 8 neighbors.';
+          } else if (type === 'corridor') {
+            desc += '🌉 Wildlife Corridor Bridge. Permeable movement habitat; restores connectivity across barrier roads.';
+          } else if (st === 'interior_core') {
+            desc += '🌲 Interior Core Forest. Buffered from edge abiotic stress; eligible for 2×2 Spotted Owl specialist territory.';
+          } else if (st === 'edge_buffer') {
+            const isPerimeter = (r === 0 || r === 9 || c === 0 || c === 9);
+            desc += `🍂 Edge Buffer Forest (${isPerimeter ? 'Touches reserve perimeter' : 'Adjacent to cleared cell'}). Exposed to high solar radiation, wind shear, and nest predation.`;
+          }
+          cellInspector.textContent = desc;
+        }
+
+        function updateEducationalTakeaway(ev) {
+          const { coreCount, edgeCount, corridorCount, clearedCount, owlPairs, patches, totalForest } = ev;
+
+          // Case 1: Baseline
+          if (clearedCount === 0 && corridorCount === 0) {
+            takeawayTitle.textContent = 'Pristine Baseline (100 ha Reserve)';
+            takeawayTopicTag.textContent = 'AP Topic 9.10: Reserve Integrity';
+            takeawayIconWrapper.innerHTML = '🌲';
+            takeawayIconWrapper.className = 'w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-xl flex-shrink-0 text-emerald-400';
+            takeawayDescription.textContent = 'In an intact 100-hectare reserve, the outer perimeter forms a 36-hectare edge buffer, leaving 64 hectares of deep interior core. This core supports 16 non-overlapping breeding pairs of Species X (Spotted Owls). Notice that even without human logging, natural boundaries inherently produce edge buffers!';
+            return;
+          }
+
+          // Case 2: Highway Bisection without Corridors (Rows 4 & 5 cleared)
+          const isRow4Cleared = grid[4].every(c => c === 'cleared');
+          const isRow5Cleared = grid[5].every(c => c === 'cleared');
+          const hasCorridorOnRow4or5 = grid[4].some(c => c === 'corridor') || grid[5].some(c => c === 'corridor');
+
+          if (isRow4Cleared && isRow5Cleared && !hasCorridorOnRow4or5 && clearedCount === 20) {
+            takeawayTitle.textContent = 'AP Exam Classic: Shape vs. Area (Highway Bisection)';
+            takeawayTopicTag.textContent = 'AP Topic 9.10: Internal Edge Penetration';
+            takeawayIconWrapper.innerHTML = '🛣️';
+            takeawayIconWrapper.className = 'w-10 h-10 rounded-xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-xl flex-shrink-0 text-rose-400';
+            takeawayDescription.textContent = 'Crucial AP Insight: Although Highway Bisection clears the exact same 20 hectares as a Perimeter Cut, internal edge effects penetrate both the north and south forest borders, slashing interior core and splitting the population into 2 isolated patches with severed gene flow!';
+            return;
+          }
+
+          // Case 3: Highway with Corridors
+          if (hasCorridorOnRow4or5 && clearedCount >= 16) {
+            takeawayTitle.textContent = 'Mitigation Success: Wildlife Corridors in Action';
+            takeawayTopicTag.textContent = 'AP Topic 9.10: Corridors & Dispersal';
+            takeawayIconWrapper.innerHTML = '🌉';
+            takeawayIconWrapper.className = 'w-10 h-10 rounded-xl bg-teal-500/20 border border-teal-500/40 flex items-center justify-center text-xl flex-shrink-0 text-teal-400';
+            takeawayDescription.textContent = 'Ecological Engineering: The vegetated corridor bridges allow North and South wildlife to disperse and mate freely (restoring a unified population). While the 1-ha wide corridor is technically edge habitat, its primary functional value is gene flow, seasonal migration, and reducing vehicle-animal collisions!';
+            return;
+          }
+
+          // Case 4: Perimeter Cut
+          if (clearedCount === 20 && grid[0].every(c => c === 'cleared') && grid[1].every(c => c === 'cleared')) {
+            takeawayTitle.textContent = 'Perimeter Timber Cut: Edge Buffer Confined to Border';
+            takeawayTopicTag.textContent = 'AP Topic 9.10: Compact Geometry';
+            takeawayIconWrapper.innerHTML = '🪵';
+            takeawayIconWrapper.className = 'w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-xl flex-shrink-0 text-amber-400';
+            takeawayDescription.textContent = 'Notice that clearing 20 ha along the reserve perimeter preserves 48 hectares of core forest and 12 owl territories. Because deforestation occurred on the edge rather than bisecting the center, the remaining forest maintains a high core-to-edge ratio.';
+            return;
+          }
+
+          // Case 5: Island Archipelago or Severe Fragmentation
+          if (patches.length >= 3) {
+            takeawayTitle.textContent = 'Severe Metapopulation Fragmentation (Island Biogeography)';
+            takeawayTopicTag.textContent = 'AP Topic 9.10: SLOSS & Extinction Debt';
+            takeawayIconWrapper.innerHTML = '🧩';
+            takeawayIconWrapper.className = 'w-10 h-10 rounded-xl bg-purple-500/20 border border-purple-500/40 flex items-center justify-center text-xl flex-shrink-0 text-purple-400';
+            takeawayDescription.textContent = `The habitat is splintered into ${patches.length} isolated patches. According to MacArthur & Wilson's Island Biogeography Theory, small isolated habitat islands experience higher extinction rates and lower colonization, causing severe genetic bottlenecking and demographic collapse.`;
+            return;
+          }
+
+          // Generic Dynamic Case
+          if (coreCount === 0 && totalForest > 0) {
+            takeawayTitle.textContent = 'Complete Loss of Interior Core Habitat';
+            takeawayTopicTag.textContent = 'AP Topic 9.10: Specialist Extirpation';
+            takeawayIconWrapper.innerHTML = '⚠️';
+            takeawayIconWrapper.className = 'w-10 h-10 rounded-xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-xl flex-shrink-0 text-rose-400';
+            takeawayDescription.textContent = 'Edge effects now penetrate every remaining hectare of forest! Species X (Spotted Owl) carrying capacity has collapsed to 0 breeding pairs, while edge generalists (deer and cowbirds) dominate the landscape.';
+            return;
+          }
+
+          takeawayTitle.textContent = 'Dynamic Spatial Landscape Evaluation';
+          takeawayTopicTag.textContent = 'AP Topic 9.10: Habitat Metrics';
+          takeawayIconWrapper.innerHTML = '📊';
+          takeawayIconWrapper.className = 'w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-xl flex-shrink-0 text-emerald-400';
+          takeawayDescription.textContent = `Current configuration retains ${coreCount} ha of interior core (${owlPairs} Spotted Owl pairs) and ${edgeCount} ha of edge buffer (${deerCount} Deer individuals). The landscape currently supports ${patches.length} connected subpopulation(s).`;
+        }
+
+        // --- PRESET LOADER FUNCTIONS ---
+
+        function loadPreset1() {
+          // Pristine Baseline (100 ha)
+          grid = Array.from({ length: GRID_SIZE }, () => Array(GRID_SIZE).fill('forest'));
+          playSound('preset');
+          render();
+          showToast('Loaded Preset 1: Pristine Baseline (100 ha)');
+        }
+
+        function loadPreset2() {
+          // Perimeter Timber Cut (-20 ha): Clears Rows 0 and 1
+          grid = Array.from({ length: GRID_SIZE }, () => Array(GRID_SIZE).fill('forest'));
+          for (let c = 0; c < GRID_SIZE; c++) {
+            grid[0][c] = 'cleared';
+            grid[1][c] = 'cleared';
+          }
+          playSound('preset');
+          render();
+          showToast('Loaded Preset 2: Perimeter Timber Cut (-20 ha)');
+        }
+
+        function loadPreset3() {
+          // Highway Bisection (-20 ha): Clears Row 4 and Row 5 straight through the middle
+          grid = Array.from({ length: GRID_SIZE }, () => Array(GRID_SIZE).fill('forest'));
+          for (let c = 0; c < GRID_SIZE; c++) {
+            grid[4][c] = 'cleared';
+            grid[5][c] = 'cleared';
+          }
+          playSound('preset');
+          render();
+          showToast('Loaded Preset 3: Highway Bisection (-20 ha)');
+        }
+
+        function loadPreset4() {
+          // Highway + 2 Wildlife Corridors: Row 4 & 5 cleared, with corridors at (Row 4, Col 2), (Row 5, Col 2) and (Row 4, Col 7), (Row 5, Col 7)
+          grid = Array.from({ length: GRID_SIZE }, () => Array(GRID_SIZE).fill('forest'));
+          for (let c = 0; c < GRID_SIZE; c++) {
+            grid[4][c] = 'cleared';
+            grid[5][c] = 'cleared';
+          }
+          grid[4][2] = 'corridor';
+          grid[5][2] = 'corridor';
+          grid[4][7] = 'corridor';
+          grid[5][7] = 'corridor';
+          playSound('preset');
+          render();
+          showToast('Loaded Preset 4: Highway + 2 Wildlife Corridors');
+        }
+
+        function loadPreset5() {
+          // Island Archipelago: 4 isolated 3x3 patches separated by cleared road matrix
+          grid = Array.from({ length: GRID_SIZE }, () => Array(GRID_SIZE).fill('cleared'));
+          // Patch 1: Top-left (Rows 1-3, Cols 1-3)
+          for (let r = 1; r <= 3; r++) {
+            for (let c = 1; c <= 3; c++) grid[r][c] = 'forest';
+          }
+          // Patch 2: Top-right (Rows 1-3, Cols 6-8)
+          for (let r = 1; r <= 3; r++) {
+            for (let c = 6; c <= 8; c++) grid[r][c] = 'forest';
+          }
+          // Patch 3: Bottom-left (Rows 6-8, Cols 1-3)
+          for (let r = 6; r <= 8; r++) {
+            for (let c = 1; c <= 3; c++) grid[r][c] = 'forest';
+          }
+          // Patch 4: Bottom-right (Rows 6-8, Cols 6-8)
+          for (let r = 6; r <= 8; r++) {
+            for (let c = 6; c <= 8; c++) grid[r][c] = 'forest';
+          }
+          playSound('preset');
+          render();
+          showToast('Loaded Preset 5: Fragmented Archipelago (4 Isolated Patches)');
+        }
+
+        // --- BRUSH SELECTION UI ---
+        function setBrush(brush) {
+          currentBrush = brush;
+          const btns = [
+            { el: brushClearBtn, mode: 'cleared', activeClass: ['bg-slate-800', 'text-amber-400', 'border-amber-500/50', 'shadow-sm'] },
+            { el: brushForestBtn, mode: 'forest', activeClass: ['bg-emerald-950', 'text-emerald-300', 'border-emerald-500/50', 'shadow-sm'] },
+            { el: brushCorridorBtn, mode: 'corridor', activeClass: ['bg-teal-950', 'text-teal-300', 'border-teal-500/50', 'shadow-sm'] }
+          ];
+
+          btns.forEach(({ el, mode, activeClass }) => {
+            el.className = 'brush-btn flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold transition border border-transparent text-slate-400 hover:text-slate-200';
+            if (mode === currentBrush) {
+              el.classList.add(...activeClass);
+              el.classList.remove('border-transparent', 'text-slate-400');
+            }
+          });
+        }
+
+        // --- TOAST NOTIFICATION ---
+        let toastTimeout = null;
+        function showToast(msg, icon = '📋') {
+          const toast = document.getElementById('toast');
+          const toastMessage = document.getElementById('toastMessage');
+          const toastIcon = document.getElementById('toastIcon');
+
+          toastMessage.textContent = msg;
+          toastIcon.textContent = icon;
+
+          toast.classList.remove('opacity-0', 'pointer-events-none', 'translate-y-2');
+          toast.classList.add('opacity-100', 'translate-y-0');
+
+          if (toastTimeout) clearTimeout(toastTimeout);
+          toastTimeout = setTimeout(() => {
+            toast.classList.remove('opacity-100', 'translate-y-0');
+            toast.classList.add('opacity-0', 'pointer-events-none', 'translate-y-2');
+          }, 3000);
+        }
+
+        // --- EXPORT REPORT CLIPBOARD ---
+        function copyAPReport() {
+          if (!currentEval) return;
+          const { coreCount, edgeCount, corridorCount, clearedCount, owlPairs, deerCount, ratio, patches, totalForest } = currentEval;
+          
+          const text = `=== AP ENVIRONMENTAL SCIENCE (TOPIC 9.10) SPATIAL REPORT ===
+Reserve Name: Forest Fragmentation, Edge Effects & Wildlife Corridors Simulation
+Total Reserve Area: 100 Hectares (1.0 km²)
+------------------------------------------------------------
+1. HABITAT COMPOSITION:
+- Total Forest: ${totalForest} ha (${totalForest}%)
+- Interior Core Forest: ${coreCount} ha (${coreCount}%)
+- Edge Buffer Forest (1-ha Rule): ${edgeCount} ha (${edgeCount}%)
+- Wildlife Corridors: ${corridorCount} ha (${corridorCount}%)
+- Cleared Land / Roads: ${clearedCount} ha (${clearedCount}%)
+- Core-to-Edge Ratio: ${ratio} : 1
+
+2. SPECIES CARRYING CAPACITY (K):
+- Species X (Core Specialist - Spotted Owl): ${owlPairs} breeding pairs (Requires 2x2 contiguous core)
+  [Baseline comparison: ${owlPairs}/16 pairs = ${Math.round((owlPairs/16)*100)}%]
+- Species Y (Edge Generalist - White-tailed Deer): ${deerCount} individuals (Floor(Edge / 2))
+
+3. METAPOPULATION CONNECTIVITY:
+- Isolated Habitat Patches: ${patches.length} patch(es)
+- Gene Flow Status: ${patches.length === 1 ? 'Unified Habitat (Continuous)' : 'Fragmented (Inbreeding Risk)'}
+
+4. KEY AP CONCEPT:
+Edge effects penetrate 1 hectare into forest from boundaries and roads. Deforestation bisecting a forest creates double the edge buffer compared to perimeter cuts, disproportionately harming interior specialists.
+============================================================`;
+
+          navigator.clipboard.writeText(text).then(() => {
+            showToast('AP Ecological Report copied to clipboard!', '📋');
+          }).catch(() => {
+            showToast('Unable to copy to clipboard', '⚠️');
+          });
+        }
+
+        // --- EVENT LISTENERS INITIALIZATION ---
+        brushClearBtn.addEventListener('click', () => setBrush('cleared'));
+        brushForestBtn.addEventListener('click', () => setBrush('forest'));
+        brushCorridorBtn.addEventListener('click', () => setBrush('corridor'));
+
+        preset1Btn.addEventListener('click', loadPreset1);
+        preset2Btn.addEventListener('click', loadPreset2);
+        preset3Btn.addEventListener('click', loadPreset3);
+        preset4Btn.addEventListener('click', loadPreset4);
+        preset5Btn.addEventListener('click', loadPreset5);
+        resetGridBtn.addEventListener('click', loadPreset1);
+
+        toggleTerritories.addEventListener('change', (e) => {
+          showTerritories = e.target.checked;
+          render();
+        });
+
+        toggleEdgeBuffer.addEventListener('change', (e) => {
+          highlightEdge = e.target.checked;
+          render();
+        });
+
+        toggleCoords.addEventListener('change', (e) => {
+          showCoordinates = e.target.checked;
+          render();
+        });
+
+        soundToggleBtn.addEventListener('click', () => {
+          soundEnabled = !soundEnabled;
+          soundIcon.textContent = soundEnabled ? '🔊' : '🔇';
+          soundText.textContent = soundEnabled ? 'Audio: On' : 'Audio: Off';
+          showToast(`Audio feedback ${soundEnabled ? 'enabled' : 'muted'}`, soundEnabled ? '🔊' : '🔇');
+        });
+
+        copyReportBtn.addEventListener('click', copyAPReport);
+
+        // Guide Modal
+        guideModalBtn.addEventListener('click', () => {
+          guideModal.classList.remove('hidden');
+          guideModal.classList.add('flex');
+        });
+        closeGuideModalBtn.addEventListener('click', () => {
+          guideModal.classList.add('hidden');
+          guideModal.classList.remove('flex');
+        });
+        closeGuideModalBtn2.addEventListener('click', () => {
+          guideModal.classList.add('hidden');
+          guideModal.classList.remove('flex');
+        });
+        guideModal.addEventListener('click', (e) => {
+          if (e.target === guideModal) {
+            guideModal.classList.add('hidden');
+            guideModal.classList.remove('flex');
+          }
+        });
+
+        // Keyboard Shortcuts (1: Clear, 2: Forest, 3: Corridor, R: Reset)
+        window.addEventListener('keydown', (e) => {
+          if (e.key === '1') setBrush('cleared');
+          else if (e.key === '2') setBrush('forest');
+          else if (e.key === '3') setBrush('corridor');
+          else if (e.key === 'r' || e.key === 'R') loadPreset1();
+        });
+
+        // Initialize App
+        setBrush('cleared');
+        initGridDOM();
+        render();
+
+      })();
+    </script>
+  </body>
+</html>
