@@ -1,0 +1,6 @@
+{
+  "name": "Forest Fragmentation & Edge Effects Simulator",
+  "description": "Interactive spatial modeling simulator for AP Environmental Science investigating forest fragmentation, edge effects, carrying capacity, and wildlife corridors.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
